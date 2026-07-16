@@ -1,0 +1,25 @@
+{
+  "name": "website-audit-agent",
+  "version": "1.0.0",
+  "description": "AI agent for comprehensive website audits — built on pi-sokosumi",
+  "type": "module",
+  "engines": { "node": ">=22.19.0" },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "dev": "tsx --env-file-if-exists=.env src/index.ts",
+    "test:run": "tsx --env-file-if-exists=.env src/test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@masumi-network/pi-sokosumi": "github:masumi-network/pi-sokosumi",
+    "@earendil-works/pi-ai": "^0.75.5",
+    "googleapis": "^144.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.30",
+    "tsx": "^4.19.2"
+  }
+}
