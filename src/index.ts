@@ -175,7 +175,7 @@ function parseRequest(description: string, title: string): AuditRequest {
   const urlMatch = text.match(/https?:\/\/[^\s,)>\]"']+/);
   if (!urlMatch) throw new Error("No URL found in task description.");
 
-  const competitors = [...text.matchAll(/competitor[s]?[:\s]+([^\s,]+)/gi)].map(m => normalizeUrl(m[1]));
+  const competitors = [...text.matchAll(/competitor[s]?[:\s]+(https?:\/\/[^\s,)>\]"']+)/gi)].map(m => normalizeUrl(m[1]));
 
   return {
     url: normalizeUrl(urlMatch[0]),
