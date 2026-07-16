@@ -30,34 +30,7 @@ pnpm install
 
 ### 2. Configure environment
 
-```bash
-cp .env.example .env
-```
-
-Fill in `.env`:
-
-```bash
-# Required
-SOKOSUMI_API_URL=https://api.preprod.sokosumi.com
-SOKOSUMI_COWORKER_API_KEY=your_key_here
-
-# Recommended (free — higher rate limits for PageSpeed)
-PAGESPEED_API_KEY=your_google_api_key
-
-# Google integrations (all use the same service account)
-GOOGLE_SERVICE_ACCOUNT_KEY_PATH=/path/to/service-account.json
-GA4_PROPERTY_ID=123456789
-GSC_SITE_URL=https://yoursite.com
-GTM_ACCOUNT_ID=1234567
-GTM_CONTAINER_ID=GTM-XXXXXXX
-
-# Google Drive folder for reports (get ID from the URL of the folder)
-GOOGLE_DRIVE_FOLDER_ID=your_folder_id
-
-# Microsoft Clarity (optional)
-CLARITY_PROJECT_ID=your_project_id
-CLARITY_API_TOKEN=your_token
-```
+Copy `.env.example` to `.env` and fill in your credentials (API keys, service account path, property IDs).
 
 ### 3. Set up Google Service Account
 
