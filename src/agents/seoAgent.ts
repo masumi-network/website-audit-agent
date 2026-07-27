@@ -49,10 +49,16 @@ export async function runSeoAudit(url: string): Promise<SeoAnalysis> {
 
 // ── Fetching ─────────────────────────────────────────────────────────────────
 
+const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "WebsiteAuditAgent/1.0" },
-    signal: AbortSignal.timeout(30_000),
+    headers: {
+      "User-Agent": BROWSER_UA,
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+    },
+    signal: AbortSignal.timeout(45_000),
     redirect: "follow",
   });
   if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status}`);
@@ -63,7 +69,10 @@ async function fetchHtml(url: string): Promise<string> {
 
 async function checkRobotsTxt(origin: string): Promise<{ reachable: boolean; disallowsIndexing: boolean }> {
   try {
-    const res = await fetch(`${origin}/robots.txt`, { signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(`${origin}/robots.txt`, {
+      headers: { "User-Agent": BROWSER_UA },
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!res.ok) return { reachable: false, disallowsIndexing: false };
     const text = await res.text();
     const blocks = /Disallow:\s*\/\s*$/m.test(text);
@@ -75,13 +84,22 @@ async function checkRobotsTxt(origin: string): Promise<{ reachable: boolean; dis
 
 async function findSitemap(origin: string): Promise<{ found: boolean; url: string | null }> {
   const candidates = ["/sitemap.xml", "/sitemap_index.xml", "/sitemap.html"];
-  for (const path of candidates) {
-    try {
-      const res = await fetch(`${origin}${path}`, { method: "HEAD", signal: AbortSignal.timeout(8_000) });
-      if (res.ok) return { found: true, url: `${origin}${path}` };
-    } catch {}
-  }
-  return { found: false, url: null };
+  const results = await Promise.all(
+    candidates.map(async (path) => {
+      try {
+        const res = await fetch(`${origin}${path}`, {
+          method: "HEAD",
+          headers: { "User-Agent": BROWSER_UA },
+          signal: AbortSignal.timeout(8_000),
+        });
+        return res.ok ? `${origin}${path}` : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+  const found = results.find(r => r !== null) ?? null;
+  return { found: found !== null, url: found };
 }
 
 // ── Extraction helpers ────────────────────────────────────────────────────────
