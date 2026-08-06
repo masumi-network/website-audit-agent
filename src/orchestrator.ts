@@ -3,6 +3,7 @@ import { runPerformanceAudit } from "./agents/performanceAgent.js";
 import { runSeoAudit } from "./agents/seoAgent.js";
 import { runAnalyticsAudit } from "./agents/analyticsAgent.js";
 import { runCompetitorAudit } from "./agents/competitorAgent.js";
+import { synthesizeRecommendations, aiRecommendationsEnabled } from "./agents/aiRecommendations.js";
 import { buildWeeklyDiff } from "./report/diff.js";
 import { saveAuditSnapshot, loadPreviousSnapshot } from "./store/history.js";
 import type { AuditRequest, AuditReport, Recommendation } from "./types.js";
@@ -106,6 +107,23 @@ export async function runFullAudit(request: AuditRequest, onProgress?: (msg: str
     weeklyDiff,
     recommendations,
   };
+
+  // ── Phase 5b: Refine into an AI-synthesized action plan (optional) ─────────
+  // Falls back silently to the rule-based recommendations if Anthropic
+  // credentials aren't configured or the model call doesn't return usable JSON.
+  if (aiRecommendationsEnabled()) {
+    log("Synthesizing AI-prioritized action plan...");
+    const aiRecs = await synthesizeRecommendations(report, recommendations).catch(err => {
+      log(`AI recommendations error: ${(err as Error).message}`);
+      return null;
+    });
+    if (aiRecs) {
+      report.recommendations = aiRecs;
+      log(`AI action plan ready (${aiRecs.length} recommendations).`);
+    } else {
+      log("AI recommendations unavailable — using rule-based recommendations.");
+    }
+  }
 
   // ── Phase 6: Save snapshot for future diffs ───────────────────────────────
 
