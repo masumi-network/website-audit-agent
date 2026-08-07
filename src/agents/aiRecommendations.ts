@@ -54,8 +54,16 @@ export async function synthesizeRecommendations(
     '"easy|medium|hard" } ] }\n' +
     "No prose, no markdown fences — just the JSON object.";
 
+  const platformLine = report.platform
+    ? `The site owner has told us the site is built on ${report.platform}. Where a fix has a ` +
+      `platform-specific path, write the "fix" steps for ${report.platform} specifically (exact ` +
+      `menu/setting names). Do NOT mention other platforms.\n\n`
+    : `The platform is unknown. Keep every "fix" platform-neutral — describe what to change in ` +
+      `plain terms, and do NOT assume Webflow, WordPress, Shopify, or any specific builder.\n\n`;
+
   const userPrompt =
     `Here are the audit findings for ${report.url}.\n\n` +
+    platformLine +
     `${buildFindingsSummary(report)}\n\n` +
     `Draft (rule-based) recommendations to refine and prioritize:\n` +
     `${JSON.stringify(draft, null, 2)}\n\n` +

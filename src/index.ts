@@ -5,7 +5,8 @@ import { buildPlainEnglishHtml } from "./report/plainEnglish.js";
 import { htmlToPdfLocally } from "./report/pdf.js";
 import { writeFileSync, unlinkSync } from "fs";
 import { resolve } from "path";
-import type { AuditReport, AuditRequest } from "./types.js";
+import type { AuditReport, AuditRequest, Platform } from "./types.js";
+import { PLATFORMS } from "./types.js";
 
 // The pi-sokosumi worker's published .d.ts omits most of its runtime options
 // (apiUrl, apiKey, enabled, createTaskHandler, …), so we type the handler
@@ -160,6 +161,7 @@ function parseRequest(description: string, title: string): AuditRequest {
     return {
       url: normalizeUrl(parsed.url),
       competitors: parsed.competitors,
+      platform: normalizePlatform(parsed.platform) ?? detectPlatform(description),
       shareEmail: parsed.shareEmail ?? extractEmail(description),
       includeAnalytics: parsed.includeAnalytics ?? false,
       ga4PropertyId: parsed.ga4PropertyId,
@@ -180,11 +182,29 @@ function parseRequest(description: string, title: string): AuditRequest {
   return {
     url: normalizeUrl(urlMatch[0]),
     competitors: competitors.length > 0 ? competitors : undefined,
+    platform: detectPlatform(text),
     shareEmail: extractEmail(text),
     includeAnalytics: /analytics|ga4|search console/i.test(text),
     weeklyComparison: true,
     pdf: /\bpdf\b/i.test(text),
   };
+}
+
+// Only ever set the platform when the user names it — we never infer it from the site.
+function normalizePlatform(value: unknown): Platform | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim().toLowerCase();
+  return (PLATFORMS as readonly string[]).includes(v) ? (v as Platform) : undefined;
+}
+
+function detectPlatform(text: string): Platform | undefined {
+  const t = text.toLowerCase();
+  if (/\bshopify\b/.test(t)) return "shopify";
+  if (/\bwebflow\b/.test(t)) return "webflow";
+  if (/\bwordpress\b|\bwoo ?commerce\b/.test(t)) return "wordpress";
+  if (/\bsquarespace\b/.test(t)) return "squarespace";
+  if (/\bwix\b/.test(t)) return "wix";
+  return undefined;
 }
 
 function extractEmail(text: string): string | undefined {

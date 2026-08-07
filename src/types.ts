@@ -1,8 +1,19 @@
 // ── Audit request (parsed from Sokosumi task description) ──────────────────────
 
+/**
+ * The CMS/website builder the site is on. Only ever set when the user tells us
+ * explicitly (in the task prompt or JSON) — we never guess. When unset, the
+ * report stays platform-neutral; when set, fix guides show that platform's steps.
+ */
+export type Platform = "webflow" | "wordpress" | "shopify" | "squarespace" | "wix";
+
+export const PLATFORMS: readonly Platform[] = ["webflow", "wordpress", "shopify", "squarespace", "wix"];
+
 export interface AuditRequest {
   url: string;
   competitors?: string[];
+  /** Website platform, only if the user stated it. Drives platform-specific fix steps. */
+  platform?: Platform;
   /** Google account email to share the report doc with (doc lands in their "Shared with me"). */
   shareEmail?: string;
   includeAnalytics?: boolean;
@@ -205,6 +216,8 @@ export interface AuditReport {
   auditId: string;
   timestamp: string;
   url: string;
+  /** Set only when the user told us the platform; drives platform-specific fix steps. */
+  platform?: Platform;
   mobile: PageSpeedResult;
   desktop: PageSpeedResult;
   seo: SeoAnalysis;

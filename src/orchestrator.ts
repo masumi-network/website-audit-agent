@@ -99,6 +99,7 @@ export async function runFullAudit(request: AuditRequest, onProgress?: (msg: str
     auditId,
     timestamp,
     url,
+    platform: request.platform,
     mobile: perfResult.mobile,
     desktop: perfResult.desktop,
     seo: seoResult,
