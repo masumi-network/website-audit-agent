@@ -3,6 +3,7 @@ import { runPerformanceAudit } from "./agents/performanceAgent.js";
 import { runSeoAudit } from "./agents/seoAgent.js";
 import { runAnalyticsAudit } from "./agents/analyticsAgent.js";
 import { runCompetitorAudit } from "./agents/competitorAgent.js";
+import { detectPlatform } from "./agents/platformAgent.js";
 import { synthesizeRecommendations, aiRecommendationsEnabled } from "./agents/aiRecommendations.js";
 import { buildWeeklyDiff } from "./report/diff.js";
 import { saveAuditSnapshot, loadPreviousSnapshot } from "./store/history.js";
@@ -24,11 +25,12 @@ export async function runFullAudit(request: AuditRequest, onProgress?: (msg: str
 
   log("Running PageSpeed (mobile + desktop)...");
   log("Running SEO analysis...");
+  if (!request.platform) log("Fingerprinting site platform...");
 
   let perfError: string | undefined;
   let seoError: string | undefined;
 
-  const [perfResult, seoResult] = await Promise.all([
+  const [perfResult, seoResult, platformDetection] = await Promise.all([
     runPerformanceAudit(url, process.env.PAGESPEED_API_KEY).catch(err => {
       perfError = (err as Error).message;
       log(`PageSpeed error: ${perfError}`);
@@ -39,10 +41,29 @@ export async function runFullAudit(request: AuditRequest, onProgress?: (msg: str
       log(`SEO analysis error: ${seoError}`);
       return null;
     }),
+    // Skip the extra fetch entirely when the user already told us the platform.
+    request.platform ? Promise.resolve(null) : detectPlatform(url).catch(() => null),
   ]);
 
   if (!perfResult) throw new Error(`PageSpeed audit failed: ${perfError ?? "unknown error"}`);
   if (!seoResult) throw new Error(`SEO analysis failed: ${seoError ?? "unknown error"}`);
+
+  // Resolve the platform used for tailored fix steps. A platform the user stated
+  // always wins; otherwise we trust detection only when it's confident, and leave
+  // the report neutral when it isn't. See platformAgent for why weak signals lie.
+  let platform = request.platform;
+  let platformSource: AuditReport["platformSource"] = request.platform ? "stated" : undefined;
+  if (!platform && platformDetection?.confidence === "high" && platformDetection.platform) {
+    platform = platformDetection.platform;
+    platformSource = "detected";
+    log(`Detected platform: ${platform} (signals: ${platformDetection.signals.join(", ")})`);
+  } else if (!request.platform) {
+    log(
+      platformDetection?.platform
+        ? `Platform guess "${platformDetection.platform}" was not confident — keeping fixes platform-neutral.`
+        : "Platform could not be determined — keeping fixes platform-neutral."
+    );
+  }
 
   // ── Phase 2: Analytics (only if requested and configured) ─────────────────
 
@@ -99,7 +120,8 @@ export async function runFullAudit(request: AuditRequest, onProgress?: (msg: str
     auditId,
     timestamp,
     url,
-    platform: request.platform,
+    platform,
+    platformSource,
     mobile: perfResult.mobile,
     desktop: perfResult.desktop,
     seo: seoResult,

@@ -55,9 +55,9 @@ export async function synthesizeRecommendations(
     "No prose, no markdown fences — just the JSON object.";
 
   const platformLine = report.platform
-    ? `The site owner has told us the site is built on ${report.platform}. Where a fix has a ` +
-      `platform-specific path, write the "fix" steps for ${report.platform} specifically (exact ` +
-      `menu/setting names). Do NOT mention other platforms.\n\n`
+    ? `The site is built on ${report.platform}${report.platformSource === "detected" ? " (detected from the live site)" : ""}. ` +
+      `Where a fix has a platform-specific path, write the "fix" steps for ${report.platform} specifically ` +
+      `(exact menu/setting names). Do NOT mention other platforms.\n\n`
     : `The platform is unknown. Keep every "fix" platform-neutral — describe what to change in ` +
       `plain terms, and do NOT assume Webflow, WordPress, Shopify, or any specific builder.\n\n`;
 

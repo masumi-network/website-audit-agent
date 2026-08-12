@@ -1,9 +1,10 @@
 // ── Audit request (parsed from Sokosumi task description) ──────────────────────
 
 /**
- * The CMS/website builder the site is on. Only ever set when the user tells us
- * explicitly (in the task prompt or JSON) — we never guess. When unset, the
- * report stays platform-neutral; when set, fix guides show that platform's steps.
+ * The CMS/website builder the site is on. Set either from what the user tells us
+ * (task prompt or JSON) or, failing that, auto-detected from the live site when
+ * fingerprinting is confident (see `platformAgent`). When it can't be determined,
+ * the report stays platform-neutral; when set, fix guides show that platform's steps.
  */
 export type Platform = "webflow" | "wordpress" | "shopify" | "squarespace" | "wix";
 
@@ -216,8 +217,14 @@ export interface AuditReport {
   auditId: string;
   timestamp: string;
   url: string;
-  /** Set only when the user told us the platform; drives platform-specific fix steps. */
+  /**
+   * The site's platform, driving platform-specific fix steps. Set from what the
+   * user told us, or — when they didn't — auto-detected from the live site, but
+   * only when detection is confident. See `platformSource`.
+   */
   platform?: Platform;
+  /** How `platform` was determined: what the user stated vs. fingerprinted from the site. */
+  platformSource?: "stated" | "detected";
   mobile: PageSpeedResult;
   desktop: PageSpeedResult;
   seo: SeoAnalysis;

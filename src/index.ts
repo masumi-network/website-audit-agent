@@ -198,7 +198,8 @@ function parseRequest(description: string, title: string): AuditRequest {
   };
 }
 
-// Only ever set the platform when the user names it — we never infer it from the site.
+// Platform from the task text (what the user typed). When absent, the orchestrator
+// falls back to fingerprinting the live site (see platformAgent).
 function normalizePlatform(value: unknown): Platform | undefined {
   if (typeof value !== "string") return undefined;
   const v = value.trim().toLowerCase();

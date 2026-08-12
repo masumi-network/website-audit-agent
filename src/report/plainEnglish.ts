@@ -6,9 +6,10 @@
  * step-by-step guide so the reader never has to google anything.
  *
  * Platform handling: fix steps are platform-neutral by default. Steps tagged with
- * `only: [...]` are shown ONLY when the user told us the site's platform
- * (report.platform) and it matches. We never guess the platform from the site —
- * so an audit with no stated platform reads generically for any builder.
+ * `only: [...]` are shown ONLY when `report.platform` is set and matches. That
+ * platform comes from what the user stated or, failing that, a confident
+ * fingerprint of the live site (see platformAgent). When the platform is unknown,
+ * the report reads generically for any builder.
  *
  * The HTML is designed to convert cleanly to .docx (via macOS `textutil`)
  * and also opens directly in Word, Pages, or Google Docs.
@@ -487,9 +488,13 @@ export function buildPlainEnglishHtml(report: AuditReport): string {
   const quick = report.recommendations.filter(r => r.effort === "easy");
 
   const platform = report.platform;
+  const platformLede = report.platformSource === "detected"
+    ? `We detected that your site is built on <strong>${platform ? PLATFORM_LABELS[platform] : ""}</strong>, so the steps are tailored for it. ` +
+      `If that's not right, tell us your platform (e.g. "my site is on Shopify") and we'll re-tailor them. `
+    : `You told us your site is built on <strong>${platform ? PLATFORM_LABELS[platform] : ""}</strong>, so the steps are tailored for it. `;
   const fixIntro = platform
     ? `Everything below is written so you can do it yourself, even without technical knowledge. ` +
-      `You told us your site is built on <strong>${PLATFORM_LABELS[platform]}</strong>, so the steps are tailored for it. ` +
+      platformLede +
       `Where a step really does need a developer, we say so — you can copy that section and send it to them as-is.`
     : `Everything below is written so you can do it yourself, even without technical knowledge. ` +
       `The steps are kept general so they apply whatever your site is built with — if you tell us your platform ` +
@@ -499,7 +504,7 @@ export function buildPlainEnglishHtml(report: AuditReport): string {
   const body = [
     `<h1>Website Health Report</h1>`,
     `<p class="meta"><strong>Website:</strong> ${esc(report.url)}<br/><strong>Checked on:</strong> ${date}` +
-    `${platform ? `<br/><strong>Platform:</strong> ${PLATFORM_LABELS[platform]}` : ""}</p>`,
+    `${platform ? `<br/><strong>Platform:</strong> ${PLATFORM_LABELS[platform]}${report.platformSource === "detected" ? " (auto-detected)" : ""}` : ""}</p>`,
 
     `<h2>The short version</h2>`,
     `<p>${verdictParagraph(overall, report)}</p>`,
