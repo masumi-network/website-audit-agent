@@ -5,7 +5,7 @@ import type { StoredAuditSnapshot, AuditReport } from "../types.js";
 const DEFAULT_DIR = "./audit-history";
 
 function getDir(): string {
-  return process.env.AUDIT_HISTORY_PATH ?? DEFAULT_DIR;
+  return process.env.AUDIT_HISTORY_PATH || DEFAULT_DIR;
 }
 
 function ensureDir(dir: string): void {
