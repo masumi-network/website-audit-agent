@@ -24,21 +24,24 @@ async function fetchPageSpeed(
   const categoryQuery = CATEGORIES.map(c => `category=${encodeURIComponent(c)}`).join("&");
   const endpoint = `${API_BASE}?${params.toString()}&${categoryQuery}`;
 
-  // Allow 3 min per attempt; retry once on timeout or 5xx (transient Lighthouse errors)
+  // Allow 3 min per attempt; retry on timeout, 5xx (transient Lighthouse errors),
+  // and 429 (quota exceeded — usually clears within the per-100s window)
   let res: Response;
   let lastError = "";
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       res = await fetch(endpoint, { signal: AbortSignal.timeout(180_000) });
       if (res.ok) break;
       lastError = await res.text().catch(() => "");
-      // Retry on 500 (transient Lighthouse failure) but not on 4xx
-      if (res.status < 500 || attempt === 1) {
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable || attempt === maxAttempts - 1) {
         throw new Error(`PageSpeed API ${strategy} failed (${res.status}): ${lastError.slice(0, 200)}`);
       }
-      await new Promise(r => setTimeout(r, 5000)); // wait 5s before retry
+      const waitMs = res.status === 429 ? 20_000 * (attempt + 1) : 5000;
+      await new Promise(r => setTimeout(r, waitMs));
     } catch (err) {
-      if ((err as Error).name !== "TimeoutError" || attempt === 1) throw err;
+      if ((err as Error).name !== "TimeoutError" || attempt === maxAttempts - 1) throw err;
     }
   }
   res = res!;

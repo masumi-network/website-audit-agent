@@ -172,7 +172,11 @@ function parseRequest(description: string, title: string): AuditRequest {
 
   // Fall back to extracting URL from plain text
   const text = `${title} ${description}`;
-  const urlMatch = text.match(/https?:\/\/[^\s,)>\]"']+/);
+  const urlMatch =
+    text.match(/https?:\/\/[^\s,)>\]"']+/) ??
+    // No protocol given (e.g. "audit utxo.ag" or "website audit for sokosumi.com") —
+    // match a bare domain with a known TLD so these don't fail to parse.
+    text.match(/(?<!@)\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|io|co|ai|dev|app|xyz|info|biz|me|us|uk|ca|de|fr|in|ag|shop|store|tech|online|site|edu|gov)\b(?:\/[^\s,)>\]"']*)?/i);
   if (!urlMatch) throw new Error("No URL found in task description.");
 
   const competitors = [...text.matchAll(/competitor[s]?[:\s]+(https?:\/\/[^\s,)>\]"']+)/gi)].map(m => normalizeUrl(m[1]));
