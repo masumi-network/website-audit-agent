@@ -180,9 +180,15 @@ function parseRequest(description: string, title: string): AuditRequest {
     };
   }
 
-  // Fall back to extracting URL from plain text
+  // Fall back to extracting a URL from plain text. Accept both full URLs
+  // (https://site.com) and bare domains the user typed without a scheme
+  // (e.g. "convin.ai") — normalizeUrl() adds https:// to the latter before the
+  // audit runs. A full URL always wins; the bare-domain fallback requires a
+  // plausible TLD to avoid matching sentence fragments like "report.The".
   const text = `${title} ${description}`;
-  const urlMatch = text.match(/https?:\/\/[^\s,)>\]"']+/);
+  const schemeUrl = text.match(/https?:\/\/[^\s,)>\]"']+/);
+  const bareDomain = text.match(/(?<![@\w.-])(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|ai|co|dev|app|xyz|info|biz|shop|store|online|site|tech|[a-z]{2})(?![a-z])(?:\/[^\s,)>\]"']*)?/i);
+  const urlMatch = schemeUrl ?? bareDomain;
   if (!urlMatch) throw new Error("No URL found in task description.");
 
   const competitors = [...text.matchAll(/competitor[s]?[:\s]+(https?:\/\/[^\s,)>\]"']+)/gi)].map(m => normalizeUrl(m[1]));

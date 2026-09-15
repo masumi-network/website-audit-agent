@@ -20,7 +20,10 @@ import { PLATFORMS, type Platform } from "./types.js";
 // ── Parse CLI args ────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const url = args.find(a => a.startsWith("http"));
+// Accept a bare domain (e.g. "convin.ai") as well as a full URL — add https:// if missing.
+const withScheme = (s: string) => (s.startsWith("http") ? s : `https://${s}`);
+const rawUrl = args.find(a => !a.startsWith("--"));
+const url = rawUrl ? withScheme(rawUrl) : undefined;
 
 if (!url) {
   console.error("Usage: pnpm test:run <url> [--analytics] [--competitors <url1> <url2>]");
@@ -47,7 +50,7 @@ const competitors: string[] = [];
 if (competitorFlagIndex !== -1) {
   for (let i = competitorFlagIndex + 1; i < args.length; i++) {
     if (args[i].startsWith("--")) break;
-    competitors.push(args[i]);
+    competitors.push(withScheme(args[i]));
   }
 }
 
