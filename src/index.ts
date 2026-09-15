@@ -3,9 +3,11 @@ import { runFullAudit } from "./orchestrator.js";
 import { buildMarkdownReport } from "./report/builder.js";
 import { buildPlainEnglishHtml } from "./report/plainEnglish.js";
 import { htmlToPdfLocally } from "./report/pdf.js";
-import { writeFileSync, unlinkSync } from "fs";
-import { resolve } from "path";
-import type { AuditReport, AuditRequest } from "./types.js";
+import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+import type { AuditReport, AuditRequest, Platform } from "./types.js";
+import { PLATFORMS } from "./types.js";
 
 // The pi-sokosumi worker's published .d.ts omits most of its runtime options
 // (apiUrl, apiKey, enabled, createTaskHandler, …), so we type the handler
@@ -118,17 +120,24 @@ startSokosumiAgentWorker({
     // ── 4. Build the Markdown report ──────────────────────────────────────────
     const markdown = buildMarkdownReport(report);
 
-    // ── 5. Save a local PDF, but only when the task asked for one ─────────────
+    // ── 5. Save a PDF to the Downloads folder, when the task asked for one ────
     let pdfPath: string | undefined;
     if (request.pdf) {
       try {
+        // Save into the user's Downloads folder so it's easy to find, rather
+        // than the worker's working directory. Falls back to home if missing.
+        const downloadsDir = join(homedir(), "Downloads");
+        try { mkdirSync(downloadsDir, { recursive: true }); } catch {}
         const host = new URL(request.url).hostname.replace(/\./g, "-");
         const baseName = `audit-report-${host}-${new Date(report.timestamp).toISOString().split("T")[0]}`;
-        const htmlPath = `${baseName}.html`;
+        const htmlPath = join(downloadsDir, `${baseName}.html`);
+        const outPdf = join(downloadsDir, `${baseName}.pdf`);
         writeFileSync(htmlPath, buildPlainEnglishHtml(report));
-        if (htmlToPdfLocally(htmlPath, `${baseName}.pdf`)) {
-          pdfPath = resolve(`${baseName}.pdf`);
+        if (htmlToPdfLocally(htmlPath, outPdf)) {
+          pdfPath = outPdf;
           console.log(`[worker] PDF saved: ${pdfPath}`);
+        } else {
+          console.warn("[worker] PDF generation skipped: no Chrome/Chromium binary found.");
         }
         unlinkSync(htmlPath);
       } catch (err) {
@@ -137,7 +146,7 @@ startSokosumiAgentWorker({
     }
 
     // ── 6. Build the completion message: summary + full written report ────────
-    const summary = buildSummaryMessage(report, pdfPath);
+    const summary = buildSummaryMessage(report, pdfPath, request.pdf ?? false);
     const comment = `${summary}\n\n---\n\n${markdown}`;
 
     return {
@@ -160,6 +169,7 @@ function parseRequest(description: string, title: string): AuditRequest {
     return {
       url: normalizeUrl(parsed.url),
       competitors: parsed.competitors,
+      platform: normalizePlatform(parsed.platform) ?? detectPlatform(description),
       shareEmail: parsed.shareEmail ?? extractEmail(description),
       includeAnalytics: parsed.includeAnalytics ?? false,
       ga4PropertyId: parsed.ga4PropertyId,
@@ -180,11 +190,30 @@ function parseRequest(description: string, title: string): AuditRequest {
   return {
     url: normalizeUrl(urlMatch[0]),
     competitors: competitors.length > 0 ? competitors : undefined,
+    platform: detectPlatform(text),
     shareEmail: extractEmail(text),
     includeAnalytics: /analytics|ga4|search console/i.test(text),
     weeklyComparison: true,
     pdf: /\bpdf\b/i.test(text),
   };
+}
+
+// Platform from the task text (what the user typed). When absent, the orchestrator
+// falls back to fingerprinting the live site (see platformAgent).
+function normalizePlatform(value: unknown): Platform | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim().toLowerCase();
+  return (PLATFORMS as readonly string[]).includes(v) ? (v as Platform) : undefined;
+}
+
+function detectPlatform(text: string): Platform | undefined {
+  const t = text.toLowerCase();
+  if (/\bshopify\b/.test(t)) return "shopify";
+  if (/\bwebflow\b/.test(t)) return "webflow";
+  if (/\bwordpress\b|\bwoo ?commerce\b/.test(t)) return "wordpress";
+  if (/\bsquarespace\b/.test(t)) return "squarespace";
+  if (/\bwix\b/.test(t)) return "wix";
+  return undefined;
 }
 
 function extractEmail(text: string): string | undefined {
@@ -307,7 +336,7 @@ function buildFollowUpResponse(question: string, report: string): string {
   return lines.join("\n");
 }
 
-function buildSummaryMessage(report: AuditReport, pdfPath?: string): string {
+function buildSummaryMessage(report: AuditReport, pdfPath: string | undefined, pdfRequested: boolean): string {
   const m = report.mobile.scores;
   const highCount = report.recommendations.filter(r => r.priority === "high").length;
   const medCount = report.recommendations.filter(r => r.priority === "medium").length;
@@ -327,7 +356,17 @@ function buildSummaryMessage(report: AuditReport, pdfPath?: string): string {
 
   lines.push(``, `The full written report is below.`);
   if (pdfPath) {
-    lines.push(`📕 A PDF copy was saved to: \`${pdfPath}\``);
+    lines.push(
+      ``,
+      `📕 **Your PDF report is ready.** It has been generated and saved to the **Downloads** folder on the machine running this agent:`,
+      ``,
+      `\`${pdfPath}\``,
+    );
+  } else if (pdfRequested) {
+    lines.push(
+      ``,
+      `⚠️ A PDF was requested but couldn't be generated on the agent machine (no Chrome/Chromium found for rendering). The full written report above still contains everything.`,
+    );
   }
 
   return lines.join("\n");

@@ -5,6 +5,7 @@
  *   pnpm test:run https://example.com
  *   pnpm test:run https://example.com --competitors https://comp1.com https://comp2.com
  *   pnpm test:run https://example.com --analytics
+ *   pnpm test:run https://example.com --platform shopify   (webflow|wordpress|shopify|squarespace|wix)
  */
 
 import { writeFileSync, unlinkSync } from "fs";
@@ -14,6 +15,7 @@ import { buildMarkdownReport } from "./report/builder.js";
 import { buildPlainEnglishHtml } from "./report/plainEnglish.js";
 import { createAuditGoogleDoc } from "./report/googleDoc.js";
 import { htmlToPdfLocally } from "./report/pdf.js";
+import { PLATFORMS, type Platform } from "./types.js";
 
 // ── Parse CLI args ────────────────────────────────────────────────────────────
 
@@ -27,6 +29,18 @@ if (!url) {
 }
 
 const includeAnalytics = args.includes("--analytics");
+
+const platformArg = args[args.indexOf("--platform") + 1];
+let platform: Platform | undefined;
+if (args.includes("--platform")) {
+  const p = (platformArg ?? "").toLowerCase();
+  if ((PLATFORMS as readonly string[]).includes(p)) {
+    platform = p as Platform;
+  } else {
+    console.error(`Unknown --platform "${platformArg}". Valid: ${PLATFORMS.join(", ")}`);
+    process.exit(1);
+  }
+}
 
 const competitorFlagIndex = args.indexOf("--competitors");
 const competitors: string[] = [];
@@ -42,10 +56,11 @@ if (competitorFlagIndex !== -1) {
 console.log(`\n🔍 Auditing: ${url}`);
 if (competitors.length) console.log(`🏁 Competitors: ${competitors.join(", ")}`);
 if (includeAnalytics) console.log(`📊 Analytics: enabled`);
+if (platform) console.log(`🧩 Platform: ${platform} (fix steps tailored)`);
 console.log("");
 
 const report = await runFullAudit(
-  { url, competitors, includeAnalytics, weeklyComparison: true },
+  { url, competitors, includeAnalytics, platform, weeklyComparison: true },
   (msg) => console.log(`  ↳ ${msg}`)
 );
 

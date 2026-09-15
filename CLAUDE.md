@@ -32,7 +32,8 @@ src/
 │   ├── performanceAgent.ts   # PageSpeed Insights API (mobile + desktop)
 │   ├── seoAgent.ts           # HTML fetch + technical SEO checks
 │   ├── analyticsAgent.ts     # GA4, GSC, GTM, Microsoft Clarity
-│   └── competitorAgent.ts    # Competitor PageSpeed + SEO snapshot
+│   ├── competitorAgent.ts    # Competitor PageSpeed + SEO snapshot
+│   └── aiRecommendations.ts  # Optional Claude synthesis of the final action plan
 ├── report/
 │   ├── builder.ts            # Markdown report builder
 │   ├── plainEnglish.ts       # HTML report for PDF/DOCX export
@@ -64,6 +65,15 @@ Supported task formats:
 - `audit-history/` — local JSON snapshots
 - `audit-report-*` — generated reports (.md, .pdf, .docx, .html)
 - `*.json` except package.json, package-lock.json, tsconfig.json
+
+## AI-synthesized recommendations (optional)
+
+The orchestrator always builds deterministic, rule-based recommendations (`buildRecommendations` in `orchestrator.ts`). When Anthropic credentials are present, it additionally runs those plus the raw findings through Claude (`src/agents/aiRecommendations.ts`) to produce a merged, deduped, business-prioritized action plan that replaces the rule-based list.
+
+- **Enable it:** set `ANTHROPIC_API_KEY` (or `ANTHROPIC_OAUTH_TOKEN`) in `.env`.
+- **Model:** defaults to `claude-sonnet-4-6`; override with `AUDIT_AI_MODEL`. Uses the project's existing `@earendil-works/pi-ai` SDK — no separate Anthropic SDK dependency.
+- **Fully optional & non-fatal:** with no credentials the step is skipped and the audit uses the rule-based recommendations. Any model/parse failure also falls back silently — the AI path never fails an audit.
+- **Weekly diffs are unaffected:** snapshot `issueIds` come from `failedAudits` + `seo.issues`, not from the recommendations list.
 
 ## Google integrations (optional)
 
